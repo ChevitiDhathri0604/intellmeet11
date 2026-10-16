@@ -22,7 +22,9 @@ export function MeetingRoom({ user }) {
 
   const socketRef = useRef();
   const localVideoRef = useRef();
+  const screenVideoRef = useRef(null);
   const localStreamRef = useRef(null);
+  const screenStreamRef = useRef(null);
   const recognitionRef = useRef(null);
 
   useEffect(() => {
@@ -111,9 +113,19 @@ export function MeetingRoom({ user }) {
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(track => track.stop());
       }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => track.stop());
+      }
       if (socketRef.current) socketRef.current.disconnect();
     };
   }, [code, user]);
+
+  // Keep webcam video element attached when screen share toggles layouts
+  useEffect(() => {
+    if (localVideoRef.current && localStreamRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+    }
+  }, [isScreenSharing, isVideoOn]);
 
   const toggleAudio = () => {
     if (localStreamRef.current) {
@@ -147,24 +159,38 @@ export function MeetingRoom({ user }) {
     });
   };
 
+  const stopScreenShare = () => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(t => t.stop());
+      screenStreamRef.current = null;
+    }
+    if (screenVideoRef.current) {
+      screenVideoRef.current.srcObject = null;
+    }
+    setIsScreenSharing(false);
+  };
+
   const startScreenShare = async () => {
     try {
       if (!isScreenSharing) {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        if (localVideoRef.current) localVideoRef.current.srcObject = screenStream;
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: 'always' },
+          audio: true
+        });
+        screenStreamRef.current = screenStream;
         setIsScreenSharing(true);
 
-        screenStream.getVideoTracks()[0].onended = () => {
-          setIsScreenSharing(false);
-          if (localVideoRef.current && localStreamRef.current) {
-            localVideoRef.current.srcObject = localStreamRef.current;
+        setTimeout(() => {
+          if (screenVideoRef.current) {
+            screenVideoRef.current.srcObject = screenStream;
           }
+        }, 100);
+
+        screenStream.getVideoTracks()[0].onended = () => {
+          stopScreenShare();
         };
       } else {
-        setIsScreenSharing(false);
-        if (localVideoRef.current && localStreamRef.current) {
-          localVideoRef.current.srcObject = localStreamRef.current;
-        }
+        stopScreenShare();
       }
     } catch (err) {
       console.warn('Screen sharing error:', err);
@@ -290,44 +316,81 @@ export function MeetingRoom({ user }) {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 p-4 overflow-hidden">
         {/* Left: Video Grid */}
         <div className="lg:col-span-3 bg-slate-900/50 border border-slate-800 rounded-3xl p-4 flex flex-col justify-between overflow-hidden">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 overflow-y-auto">
-            {/* Local Stream Card */}
-            <div className="relative bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden min-h-[240px] flex items-center justify-center">
+          {isScreenSharing ? (
+            /* Dual Layout: Screen Share Stage + Live Webcam Picture-in-Picture */
+            <div className="relative flex-1 bg-slate-950 border border-indigo-500/30 rounded-2xl overflow-hidden flex items-center justify-center">
               <video
-                ref={localVideoRef}
+                ref={screenVideoRef}
                 autoPlay
                 playsInline
-                muted
-                className={`w-full h-full object-cover ${!isVideoOn ? 'hidden' : 'block'}`}
+                className="w-full h-full object-contain bg-black"
               />
-              {!isVideoOn && (
-                <div className="flex flex-col items-center space-y-2">
-                  <div className="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center text-3xl text-slate-400">
-                    👤
+              <div className="absolute top-3 left-3 bg-indigo-600/90 backdrop-blur px-3 py-1 rounded-lg text-xs font-semibold text-white flex items-center gap-2 shadow-lg">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span>🖥️ Screen Sharing Active</span>
+              </div>
+
+              {/* Live Webcam Camera (Simultaneous Picture-in-Picture) */}
+              <div className="absolute bottom-4 right-4 w-48 h-32 bg-slate-900 border-2 border-indigo-500 rounded-xl overflow-hidden shadow-2xl z-10 flex items-center justify-center">
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={`w-full h-full object-cover ${!isVideoOn ? 'hidden' : 'block'}`}
+                />
+                {!isVideoOn && (
+                  <div className="flex flex-col items-center justify-center space-y-1">
+                    <span className="text-xl">👤</span>
+                    <span className="text-[10px] text-slate-400">Camera Off</span>
                   </div>
-                  <span className="text-xs text-slate-500">Camera Turned Off</span>
+                )}
+                <div className="absolute bottom-1.5 left-2 bg-slate-950/80 px-2 py-0.5 rounded text-[10px] font-semibold text-white">
+                  {user?.name || 'You'} (Camera)
                 </div>
-              )}
-              <div className="absolute bottom-3 left-3 bg-slate-900/90 px-3 py-1 rounded-lg text-xs font-semibold text-white border border-slate-800">
-                {user?.name || 'You'} (Host)
               </div>
             </div>
-
-            {/* Remote Participants */}
-            {participants.filter(p => p.userId !== user?._id).map((p, idx) => (
-              <div key={idx} className="relative bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden min-h-[240px] flex items-center justify-center">
-                <div className="flex flex-col items-center space-y-2">
-                  <div className="w-20 h-20 rounded-full bg-indigo-950 border border-indigo-500/30 flex items-center justify-center text-3xl text-indigo-400">
-                    👤
+          ) : (
+            /* Standard Grid View: Webcam Camera Front & Center */
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 overflow-y-auto">
+              {/* Local Stream Card */}
+              <div className="relative bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden min-h-[240px] flex items-center justify-center">
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={`w-full h-full object-cover ${!isVideoOn ? 'hidden' : 'block'}`}
+                />
+                {!isVideoOn && (
+                  <div className="flex flex-col items-center space-y-2">
+                    <div className="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center text-3xl text-slate-400">
+                      👤
+                    </div>
+                    <span className="text-xs text-slate-500">Camera Turned Off</span>
                   </div>
-                  <span className="text-xs text-slate-300 font-semibold">{p.userName}</span>
-                </div>
+                )}
                 <div className="absolute bottom-3 left-3 bg-slate-900/90 px-3 py-1 rounded-lg text-xs font-semibold text-white border border-slate-800">
-                  {p.userName}
+                  {user?.name || 'You'} (Host)
                 </div>
               </div>
-            ))}
-          </div>
+
+              {/* Remote Participants */}
+              {participants.filter(p => p.userId !== user?._id).map((p, idx) => (
+                <div key={idx} className="relative bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden min-h-[240px] flex items-center justify-center">
+                  <div className="flex flex-col items-center space-y-2">
+                    <div className="w-20 h-20 rounded-full bg-indigo-950 border border-indigo-500/30 flex items-center justify-center text-3xl text-indigo-400">
+                      👤
+                    </div>
+                    <span className="text-xs text-slate-300 font-semibold">{p.userName}</span>
+                  </div>
+                  <div className="absolute bottom-3 left-3 bg-slate-900/90 px-3 py-1 rounded-lg text-xs font-semibold text-white border border-slate-800">
+                    {p.userName}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Meeting Controls Bar */}
           <div className="flex justify-center items-center space-x-4 pt-4 border-t border-slate-800">
