@@ -1,9 +1,18 @@
 [build]
+  command = "npm run build && npm --prefix ../backend install"
   publish = "dist"
-  command = "npm run build"
+
+[functions]
+  directory = "../netlify/functions"
+  node_bundler = "esbuild"
 
 [build.environment]
   NODE_VERSION = "20"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
 
 [[redirects]]
   from = "/*"

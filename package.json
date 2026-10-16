@@ -1,0 +1,19 @@
+{
+  "name": "intellmeet-fullstack",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix frontend install && npm --prefix frontend run build && npm --prefix backend install",
+    "build:frontend": "npm --prefix frontend run build",
+    "start": "node backend/src/server.js"
+  },
+  "dependencies": {
+    "serverless-http": "^4.0.0",
+    "express": "^4.21.2",
+    "cors": "^2.8.5",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^6.10.0",
+    "dotenv": "^16.4.7",
+    "mongoose": "^8.8.4"
+  }
+}

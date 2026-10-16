@@ -82,17 +82,29 @@ export function MeetingRoom({ user }) {
       recognitionRef.current = recognition;
     }
 
-    // Connect Socket.io signaling
-    socketRef.current = io('http://localhost:5000');
-    socketRef.current.emit('join-room', {
-      roomId: code,
-      userId: user?._id || Math.random().toString(),
-      userName: user?.name || 'Guest'
-    });
+    // Connect Socket.io signaling safely
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? window.location.origin : 'http://localhost:5000');
+    try {
+      socketRef.current = io(socketUrl, {
+        transports: ['websocket', 'polling'],
+        timeout: 4000
+      });
+      socketRef.current.emit('join-room', {
+        roomId: code,
+        userId: user?._id || Math.random().toString(),
+        userName: user?.name || 'Guest'
+      });
 
-    socketRef.current.on('room-participants', (users) => setParticipants(users));
-    socketRef.current.on('receive-message', (msg) => setMessages((prev) => [...prev, msg]));
-    socketRef.current.on('receive-transcript', (data) => setTranscript((prev) => [...prev, data]));
+      socketRef.current.on('room-participants', (users) => setParticipants(users));
+      socketRef.current.on('receive-message', (msg) => setMessages((prev) => [...prev, msg]));
+      socketRef.current.on('receive-transcript', (data) => setTranscript((prev) => [...prev, data]));
+      socketRef.current.on('connect_error', () => {
+        // Fallback for standalone/serverless mode without crashing room UI
+        setParticipants([{ id: user?._id || 'self', name: user?.name || 'You', isAudioOn: true, isVideoOn: true }]);
+      });
+    } catch (sockErr) {
+      console.warn('Socket connection error in standalone mode:', sockErr);
+    }
 
     return () => {
       if (recognitionRef.current) recognitionRef.current.stop();
