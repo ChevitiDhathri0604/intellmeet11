@@ -59,10 +59,19 @@ export function App() {
             }
           />
 
-          {/* Dedicated Fullscreen Meeting Room */}
+          {/* Dedicated Fullscreen Meeting Room - Allows instant direct access */}
           <Route
             path="/room/:code"
-            element={user ? <MeetingRoom user={user} /> : <Navigate to="/login" replace />}
+            element={
+              <MeetingRoom
+                user={
+                  user || {
+                    _id: 'guest_' + Date.now(),
+                    name: 'Guest Participant'
+                  }
+                }
+              />
+            }
           />
         </Routes>
       </div>

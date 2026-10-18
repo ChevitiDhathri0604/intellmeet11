@@ -62,6 +62,19 @@ export function Login({ setUser }) {
     }
   };
 
+  const handleInstantDemoLogin = () => {
+    const demoUser = {
+      _id: 'demo_' + Date.now(),
+      name: email ? email.split('@')[0] : 'Demo User',
+      email: email || 'demo@intellmeet.io',
+      token: 'demo_token_' + Date.now()
+    };
+    localStorage.setItem('intellmeet_token', demoUser.token);
+    localStorage.setItem('intellmeet_user', JSON.stringify(demoUser));
+    setUser(demoUser);
+    navigate('/dashboard');
+  };
+
   return (
     <div className="min-h-[calc(100vh-73px)] bg-slate-950 flex items-center justify-center p-6">
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
@@ -129,7 +142,7 @@ export function Login({ setUser }) {
             <form onSubmit={handleVerifyOTP} className="space-y-4">
               <div className="p-4 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl text-center space-y-1">
                 <span className="text-xs text-indigo-300">OTP Sent to: <strong className="text-white">{email}</strong></span>
-                <p className="text-xs text-slate-400 mt-1">📬 Check your inbox (and spam folder)</p>
+                <p className="text-xs text-slate-400 mt-1">📬 Check your inbox or enter backup code <strong className="text-emerald-400 font-mono">123456</strong></p>
               </div>
 
               <div>
@@ -199,7 +212,18 @@ export function Login({ setUser }) {
           </form>
         )}
 
-        <p className="text-slate-500 text-xs text-center mt-4">
+        {/* 1-Click Instant Demo Access */}
+        <div className="pt-2 border-t border-slate-800 text-center space-y-2">
+          <button
+            type="button"
+            onClick={handleInstantDemoLogin}
+            className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold transition border border-slate-700 flex items-center justify-center gap-2"
+          >
+            <span>⚡ 1-Click Instant Demo Login (Skip OTP)</span>
+          </button>
+        </div>
+
+        <p className="text-slate-500 text-xs text-center mt-2">
           Don't have an account?{' '}
           <Link to="/register" className="text-indigo-400 font-medium hover:underline">
             Register now

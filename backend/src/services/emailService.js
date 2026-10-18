@@ -1,13 +1,16 @@
 const nodemailer = require('nodemailer');
 
-// Create transporter using Gmail SMTP
+// Create transporter using Gmail SMTP with strict timeouts
 const createTransporter = () => {
   return nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
-    }
+    },
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 5000
   });
 };
 
